@@ -1,6 +1,7 @@
 // cfr.cpp - Vanilla CFR + info-set-aware best response
 
 #include "bluefish/cfr.h"
+#include <unordered_map>
 
 namespace bluefish {
 
@@ -46,4 +47,62 @@ double CfrTrainer::train(int iterations, RootFn root_fn) {
 
 	return total_value / static_cast<double>(iterations);
 }
+
+double CfrTrainer::cfr(const GameState& state, double pi0, double pi1) {
+	if (state.is_terminal()) {
+		return state.utility(0);
+	}
+
+	int player = state.current_player();
+	auto actions = state.legal_actions();
+	auto n = static_cast<int>(actions.size());
+	std::string key = state.info_set_key();
+
+	auto node = nodes_[key];
+	if (node.num_actions == 0) {
+		node.init(n);
+	}
+
+	auto sigma = node.current_stategy();
+
+	std::vector<double> action_util(static_cast<std::size_t>(n));
+	double node_util = 0.0;
+
+	for (int a = 0; a < n; ++a) {
+		auto ai = static_cast<std::size_t>(a);
+		auto next = state.act(actions[ai]);
+		
+		if (player == 0) {
+			action_util[ai] = cfr(*next, pi0 * sigma[ai], pi1);
+		} else {
+			action_util[ai] = cfr(*next, pi0, pi1 * sigma[ai]);
+		}
+		node_util += sigma[ai] * action_util[ai];
+	}
+
+	// Counterfactual regret updates
+	for (int a = 0; a < n; ++a) {
+		auto ai = static_cast<std::size_t>(a);
+		if (player == 0) {
+		node.regret_sum[ai] += pi1 * (action_util[ai] - node_util);
+		node.strategy_sum[ai] += pi0 * sigma[ai];
+		} else {
+			node.regret_sum[ai] += pi0 * (node_util - action_util[ai]);
+			node.strategy_sum[ai] += pi1 * sigma[ai];
+		}
+	}
+
+	return node_util;
+}
+
+// Exploitability
+void CfrTrainer::discover_info_sets(
+	const GameState& state, int br_player, int br_depth,
+	std::unordered_map<std::string, IsInfo>& out) const
+{
+	if (state.is_terminal()) return;
+	
+}
+
+
 }
