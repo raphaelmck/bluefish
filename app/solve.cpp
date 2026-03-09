@@ -15,7 +15,7 @@ constexpr int kDefaultIterations = 100'000;
 void print_strategy(const bluefish::CfrTrainer& trainer) {
 	std::map<std::string, std::vector<double>> strategies;
 	for (auto& [key, node] : trainer.info_map()) {
-		strategies[key] = node.average_srategy();
+		strategies[key] = node.average_strategy();
 	}
 
 	auto player_of = [](const std::string& key) {

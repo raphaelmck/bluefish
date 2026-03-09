@@ -16,8 +16,8 @@ struct InfoNode {
 	int num_actions = 0;
 
 	void init(int n);
-	std::vector<double> current_stategy() const;
-	std::vector<double> average_srategy() const;
+	std::vector<double> current_strategy() const;
+	std::vector<double> average_strategy() const;
 };
 
 // CFR trainer

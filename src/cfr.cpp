@@ -12,7 +12,7 @@ void InfoNode::init(int n) {
 	strategy_sum.assign(static_cast<std::size_t>(n), 0.0);
 }
 
-std::vector<double> InfoNode::current_stategy() const {
+std::vector<double> InfoNode::current_strategy() const {
 	std::vector<double> strat(static_cast<std::size_t>(num_actions));
 	double pos_sum = 0.0;
 
@@ -64,7 +64,7 @@ double CfrTrainer::cfr(const GameState& state, double pi0, double pi1) {
 		node.init(n);
 	}
 
-	auto sigma = node.current_stategy();
+	auto sigma = node.current_strategy();
 
 	std::vector<double> action_util(static_cast<std::size_t>(n));
 	double node_util = 0.0;
@@ -186,7 +186,7 @@ double CfrTrainer::accumulate_br(
 		std::string key = state.info_set_key();
 		auto it = nodes_.find(key);
 		assert(it != nodes_.end());
-		auto avg = it->second.average_srategy();
+		auto avg = it->second.average_strategy();
 
 		double total = 0.0;
 		for (int a = 0; a < n; ++a) {
@@ -222,7 +222,7 @@ double CfrTrainer::eval_br(
 		std::string key = state.info_set_key();
 		auto it = nodes_.find(key);
 		assert(it != nodes_.end());
-		auto avg = it->second.average_srategy();
+		auto avg = it->second.average_strategy();
 
 		double total = 0.0;
 		for (int a = 0; a < n; ++a) {
