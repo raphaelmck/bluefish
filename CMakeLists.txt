@@ -11,12 +11,14 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wconversion)
 
 # Core library
 add_library(bluefish_core
-	src/cfr.cpp
+    src/cfr.cpp
 )
 target_include_directories(bluefish_core PUBLIC include)
 
 # Solver CLI
-add_executable(solve_app/solve.cpp)
+add_executable(solve
+    app/solve.cpp
+)
 target_link_libraries(solve PRIVATE bluefish_core)
 
 # Tests
@@ -24,14 +26,14 @@ enable_testing()
 
 include(FetchContent)
 FetchContent_Declare(
-	doctest
-	GIT_REPOSITORY https://github.com/doctest/doctest.git
-	GIT_TAG v2.4.11
+    doctest
+    GIT_REPOSITORY https://github.com/doctest/doctest.git
+    GIT_TAG v2.4.11
 )
 FetchContent_MakeAvailable(doctest)
 
 add_executable(tests
-	tests/test_kuhn_cfr.cpp
+    tests/test_kuhn_cfr.cpp
 )
 target_link_libraries(tests PRIVATE bluefish_core doctest::doctest)
 add_test(NAME bluefish_tests COMMAND tests)
