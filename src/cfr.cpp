@@ -1,7 +1,9 @@
 // cfr.cpp - Vanilla CFR + info-set-aware best response
 
 #include "bluefish/cfr.h"
+#include <string>
 #include <unordered_map>
+#include <cassert>
 
 namespace bluefish {
 
@@ -96,13 +98,109 @@ double CfrTrainer::cfr(const GameState& state, double pi0, double pi1) {
 }
 
 // Exploitability
+
+// Discover all info sets for br_player and their depth
 void CfrTrainer::discover_info_sets(
 	const GameState& state, int br_player, int br_depth,
 	std::unordered_map<std::string, IsInfo>& out) const
 {
 	if (state.is_terminal()) return;
 	
+	auto actions = state.legal_actions();
+	int player = state.current_player();
+
+	if (player == br_player) {
+		std::string key = state.info_set_key();
+		if (out.find(key) == out.end()) {
+			out[key] = {br_depth, static_cast<int>(actions.size())};
+		}
+		for (auto a : actions) {
+			auto next = state.act(a);
+			discover_info_sets(*next, br_player, br_depth + 1, out);
+		}
+	} else {
+		for (auto a : actions) {
+			auto next = state.act(a);
+			discover_info_sets(*next, br_player, br_depth, out);
+		}
+	}
 }
 
+// Accumulate counterfactual action values for info sets at target_depth. At 
+// deeper info sets, use already-resolved BR actions. At shallower info sets,
+// traverse all actions 
+double CfrTrainer::accumulate_br(
+	const GameState& state, int br_player,
+	int target_depth, int br_depth, double opp_reach,
+	const std::unordered_map<std::string, IsInfo>& info,
+	const std::unordered_map<std::string, int>& resolved,
+	std::unordered_map<std::string, std::vector<double>>& acc) const
+{
+	if (state.is_terminal()) {
+		return opp_reach * state.utility(br_player);
+	}
+
+	int player = state.current_player();
+	auto actions = state.legal_actions();
+	auto n = static_cast<int>(actions.size());
+
+	if (player == br_player) {
+		std::string key = state.info_set_key();
+		int depth = info.at(key).depth;
+
+		if (depth > target_depth) {
+			// Already resolved, follow the computer BR action
+			int best_a = resolved.at(key);
+			auto next = state.act(actions[static_cast<std::atomic_size_t>(best_a)]);
+			return accumulate_br(*next, br_player, target_depth, 
+						br_depth + 1, opp_reach, info, resolved, acc);
+		}
+
+		if (depth == target_depth) {
+			// This is the depth we're resolving: try all actions
+			auto& vals = acc[key];
+			double best_val = -std::numeric_limits<double>::infinity();
+			for (int a = 0; a < n; ++a) {
+				auto ai = static_cast<std::atomic_size_t>(a);
+				auto next = state.act(actions[ai]);
+				double v = accumulate_br(*next, br_player, target_depth, 
+								br_depth + 1, opp_reach, info, resolved, acc);
+				vals[ai] += v;
+				best_val = std::max(best_val, v);
+			}
+			// Return optimistic value (exact choice made after aggregation)
+			return best_val;
+		}
+
+		// depth < target.depth: shallower than target
+		// Traverse all actions
+		double total = 0.0;
+		for (int a = 0; a < n; ++a) {
+			auto ai = static_cast<std::size_t>(a);
+			auto next = state.act(actions[ai]);
+			total += accumulate_br(*next, br_player, target_depth,
+								   br_depth + 1, opp_reach, info, resolved, acc);
+		}
+		return total;
+	} else {
+		// Opponent: follow their average strategy
+		std::string key = state.info_set_key();
+		auto it = nodes_.find(key);
+		assert(it != nodes_.end());
+		auto avg = it->second.average_srategy();
+
+		double total = 0.0;
+		for (int a = 0; a < n; ++a) {
+			auto ai = static_cast<std::size_t>(a);
+			auto next = state.act(actions[ai]);
+			total += accumulate_br(*next, br_player, target_depth,
+								   br_depth, opp_reach * avg[ai],
+								   info, resolved, acc);
+		}
+		return total;
+	}
+}
+
+// Evaluate utility under a fully resolved BR strategy
 
 }

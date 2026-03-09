@@ -50,11 +50,12 @@ private:
 		const GameState& state, int br_player, int br_depth,
 		std::unordered_map<std::string, IsInfo>& out) const;
 
-	void accumulate_br(
+	double accumulate_br(
 		const GameState& state, int br_player,
 		int target_depth, int br_depth, double opp_reach,
 		const std::unordered_map<std::string, IsInfo>& info,
-		const std::unordered_map<std::string, std::vector<double>>& acc) const;
+		const std::unordered_map<std::string, int>& resolved,
+		std::unordered_map<std::string, std::vector<double>>& acc) const;
 	
 	double eval_br(
 		const GameState&& state, int br_player, double prob,
