@@ -238,12 +238,68 @@ double CfrTrainer::eval_br(
 }
 
 // Orchestrator: compute exploitability for both players
-double CfrTrainer::exploitability(RootFn root_fr) const {
+double CfrTrainer::exploitability(RootFn roots_fn) const {
 	double total_exploit = 0.0;
 
 	for (int br_player = 0; br_player < 2; ++br_player) {
 		// Discover info sets and their depths
+		std::unordered_map<std::string, IsInfo> info;
+		{
+			auto roots = roots_fn();
+			for (auto& r : roots) {
+				discover_info_sets(*r.state, br_player, 0, info);
+			}
+		}
+
+		int max_depth = 0;
+		for (auto& [k, v] : info) {
+			max_depth = std::max(max_depth, v.depth);
+		}
+
+		// Resolve BR actions from deepest to shallowest
+		std::unordered_map<std::string, int> br_actions;
+
+		for (int d = max_depth; d >= 0; --d) {
+			// Initialize accumulators for info sets at this depth
+			std::unordered_map<std::string, std::vector<double>> acc;
+			for (auto& [k, v] : info) {
+				if (v.depth == d) {
+					acc[k].assign(static_cast<std::size_t>(v.num_actions), 0.0);
+				}
+			}
+			if (acc.empty()) continue;
+
+			// Traverse all deals
+			auto roots = roots_fn();
+			for (auto& r : roots) {
+				accumulate_br(*r.state, br_player, d, 0, r.probability, 
+							  info, br_actions, acc);
+			}
+
+			for (auto& [k, vals] : acc) {
+				int best_a = 0;
+				for (int a = 1; a < static_cast<int>(vals.size()); ++a) {
+					if (vals[static_cast<std::size_t>(a)] > 
+						vals[static_cast<std::size_t>(best_a)]) {
+							best_a = a;
+					}
+				}
+				br_actions[k] = best_a;
+			}
+		}
+
+		// Evaluate total BR value
+		double br_value = 0.0;
+		{
+			auto roots = roots_fn();
+			for (auto& r : roots) {
+				br_value += eval_br(*r.state, br_player, r.probability, br_actions);
+			}
+		}
+		total_exploit += br_value;
 	}
+
+	return total_exploit;
 }
 
 }
