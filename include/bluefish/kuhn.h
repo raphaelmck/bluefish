@@ -106,7 +106,7 @@ private:
 	int len_ = 0;
 };
 
-inline std::vector<RootState> root_state() {
+inline std::vector<RootState> root_states() {
 	std::vector<RootState> roots;
 	roots.reserve(6);
 	for (int c0 = 0; c0 < 3; ++c0) {

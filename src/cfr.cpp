@@ -1,10 +1,7 @@
 // cfr.cpp - Vanilla CFR + info-set-aware best response
 
 #include "bluefish/cfr.h"
-#include <cstddef>
-#include <cstdint>
 #include <string>
-#include <unordered_map>
 #include <cassert>
 
 namespace bluefish {
