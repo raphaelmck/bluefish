@@ -12,3 +12,7 @@ An imperfect-information game-solving engine built on Counterfactual Regret Mini
 | 2     | Leduc poker, generic engine, strategy serialization | - [ ]  |
 
 ## Build 
+
+## References
+
+- Neller & Lanctot. *An Introduction to Counterfactual Regret Minimization.*
