@@ -45,4 +45,9 @@ public:
 	virtual std:: vector<ChanceOutcome> chance_outcomes() const { return {}; }
 };
 
+struct RootState {
+	std::unique_ptr<GameState> state;
+	double probability;
+};
+
 }
