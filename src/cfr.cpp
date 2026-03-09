@@ -1,6 +1,8 @@
 // cfr.cpp - Vanilla CFR + info-set-aware best response
 
 #include "bluefish/cfr.h"
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <cassert>
@@ -202,5 +204,46 @@ double CfrTrainer::accumulate_br(
 }
 
 // Evaluate utility under a fully resolved BR strategy
+double CfrTrainer::eval_br(
+		const GameState& state, int br_player, double prob,
+		const std::unordered_map<std::string, int>& br_actions) const
+{
+	if (state.is_terminal()) {
+		return prob * state.utility(br_player);
+	}
+	
+	int player = state.current_player();
+	auto actions = state.legal_actions();
+	auto n = static_cast<int>(actions.size());
+
+	if (player == br_player) {
+		std::string key = state.info_set_key();
+		int best_a = br_actions.at(key);
+		auto next = state.act(actions[static_cast<std::size_t>(best_a)]);
+		return eval_br(*next, br_player, prob, br_actions);
+	} else {
+		std::string key = state.info_set_key();
+		auto it = nodes_.find(key);
+		assert(it != nodes_.end());
+		auto avg = it->second.average_srategy();
+
+		double total = 0.0;
+		for (int a = 0; a < n; ++a) {
+			auto ai = static_cast<std::size_t>(a);
+			auto next = state.act(actions[ai]);
+			total += eval_br(*next, br_player, prob * avg[ai], br_actions);
+		}
+		return total;
+	}
+}
+
+// Orchestrator: compute exploitability for both players
+double CfrTrainer::exploitability(RootFn root_fr) const {
+	double total_exploit = 0.0;
+
+	for (int br_player = 0; br_player < 2; ++br_player) {
+		// Discover info sets and their depths
+	}
+}
 
 }

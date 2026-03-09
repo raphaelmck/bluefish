@@ -58,7 +58,7 @@ private:
 		std::unordered_map<std::string, std::vector<double>>& acc) const;
 	
 	double eval_br(
-		const GameState&& state, int br_player, double prob,
+		const GameState& state, int br_player, double prob,
 		const std::unordered_map<std::string, int>& br_actions) const;
 };
 
