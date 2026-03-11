@@ -75,7 +75,7 @@ double CfrTrainer::cfr(const GameState& state, double pi0, double pi1) {
 	auto n = static_cast<int>(actions.size());
 	std::string key = state.info_set_key();
 
-	auto node = nodes_[key];
+	auto& node = nodes_[key];
 	if (node.num_actions == 0) {
 		node.init(n);
 	}
@@ -166,7 +166,7 @@ double CfrTrainer::accumulate_br(
 		if (depth > target_depth) {
 			// Already resolved, follow the computer BR action
 			int best_a = resolved.at(key);
-			auto next = state.act(actions[static_cast<std::atomic_size_t>(best_a)]);
+			auto next = state.act(actions[static_cast<std::size_t>(best_a)]);
 			return accumulate_br(*next, br_player, target_depth, 
 						br_depth + 1, opp_reach, info, resolved, acc);
 		}
@@ -176,7 +176,7 @@ double CfrTrainer::accumulate_br(
 			auto& vals = acc[key];
 			double best_val = -std::numeric_limits<double>::infinity();
 			for (int a = 0; a < n; ++a) {
-				auto ai = static_cast<std::atomic_size_t>(a);
+				auto ai = static_cast<std::size_t>(a);
 				auto next = state.act(actions[ai]);
 				double v = accumulate_br(*next, br_player, target_depth, 
 								br_depth + 1, opp_reach, info, resolved, acc);
