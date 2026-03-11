@@ -32,6 +32,8 @@ public:
 
 	double exploitability(RootFn root_fr) const;
 
+	std::string serialize_json() const;
+
 	const InfoMap& info_map() const { return nodes_; }
 	std::size_t num_info_sets() const { return nodes_.size(); }
 	int64_t iterations() const { return iterations_; }

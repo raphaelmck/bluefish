@@ -5,8 +5,12 @@
 #include <string>
 #include <cassert>
 #include <numeric>
+#include <map>
+#include <sstream>
 
 namespace bluefish {
+
+// - InfoNode -
 
 void InfoNode::init(int n) {
 	num_actions = n;
@@ -46,6 +50,8 @@ std::vector<double> InfoNode::average_strategy() const {
 	return avg;
 }
 
+// - CfrTrainer: training -
+
 double CfrTrainer::train(int iterations, RootFn root_fn) {
 	double total_value = 0.0;
 
@@ -70,15 +76,24 @@ double CfrTrainer::cfr(const GameState& state, double pi0, double pi1) {
 		return state.utility(0);
 	}
 
+	// - Chance node: traverse all outcomes -
+	if (state.is_chance()) {
+		double ev = 0.0;
+		for (auto& outcome : state.chance_outcomes()) {
+			double p = outcome.probability;
+			ev += p * cfr(*outcome.state, pi0 * p, pi1 * p);
+		}
+		return ev;
+	}
+
+	// - Decision node -
 	int player = state.current_player();
 	auto actions = state.legal_actions();
 	auto n = static_cast<int>(actions.size());
 	std::string key = state.info_set_key();
 
 	auto& node = nodes_[key];
-	if (node.num_actions == 0) {
-		node.init(n);
-	}
+	if (node.num_actions == 0) node.init(n);
 
 	auto sigma = node.current_strategy();
 
@@ -101,10 +116,10 @@ double CfrTrainer::cfr(const GameState& state, double pi0, double pi1) {
 	for (int a = 0; a < n; ++a) {
 		auto ai = static_cast<std::size_t>(a);
 		if (player == 0) {
-		node.regret_sum[ai] += pi1 * (action_util[ai] - node_util);
-		node.strategy_sum[ai] += pi0 * sigma[ai];
+			node.regret_sum[ai]   += pi1 * (action_util[ai] - node_util);
+			node.strategy_sum[ai] += pi0 * sigma[ai];
 		} else {
-			node.regret_sum[ai] += pi0 * (node_util - action_util[ai]);
+			node.regret_sum[ai]   += pi0 * (node_util - action_util[ai]);
 			node.strategy_sum[ai] += pi1 * sigma[ai];
 		}
 	}
@@ -112,7 +127,7 @@ double CfrTrainer::cfr(const GameState& state, double pi0, double pi1) {
 	return node_util;
 }
 
-// Exploitability
+// - CfrTrainer: exploitability -
 
 // Discover all info sets for br_player and their depth
 void CfrTrainer::discover_info_sets(
@@ -120,6 +135,13 @@ void CfrTrainer::discover_info_sets(
 	std::unordered_map<std::string, IsInfo>& out) const
 {
 	if (state.is_terminal()) return;
+
+	if (state.is_chance()) {
+		for (auto& outcome : state.chance_outcomes()) {
+			discover_info_sets(*outcome.state, br_player, br_depth, out);
+		}
+		return;
+	}
 	
 	auto actions = state.legal_actions();
 	int player = state.current_player();
@@ -153,6 +175,16 @@ double CfrTrainer::accumulate_br(
 {
 	if (state.is_terminal()) {
 		return opp_reach * state.utility(br_player);
+	}
+
+	if (state.is_chance()) {
+		double total = 0.0;
+		for (auto& outcome : state.chance_outcomes()) {
+			total += accumulate_br(
+				*outcome.state, br_player, target_depth, br_depth,
+				opp_reach * outcome.probability, info, resolved, acc);
+		}
+		return total;
 	}
 
 	int player = state.current_player();
@@ -197,23 +229,22 @@ double CfrTrainer::accumulate_br(
 								   br_depth + 1, opp_reach, info, resolved, acc);
 		}
 		return total;
-	} else {
-		// Opponent: follow their average strategy
-		std::string key = state.info_set_key();
-		auto it = nodes_.find(key);
-		assert(it != nodes_.end());
-		auto avg = it->second.average_strategy();
+	} 
+	// Opponent: follow their average strategy
+	std::string key = state.info_set_key();
+	auto it = nodes_.find(key);
+	assert(it != nodes_.end());
+	auto avg = it->second.average_strategy();
 
-		double total = 0.0;
-		for (int a = 0; a < n; ++a) {
-			auto ai = static_cast<std::size_t>(a);
-			auto next = state.act(actions[ai]);
-			total += accumulate_br(*next, br_player, target_depth,
-								   br_depth, opp_reach * avg[ai],
-								   info, resolved, acc);
-		}
-		return total;
+	double total = 0.0;
+	for (int a = 0; a < n; ++a) {
+		auto ai = static_cast<std::size_t>(a);
+		auto next = state.act(actions[ai]);
+		total += accumulate_br(*next, br_player, target_depth,
+								br_depth, opp_reach * avg[ai],
+								info, resolved, acc);
 	}
+	return total;
 }
 
 // Evaluate utility under a fully resolved BR strategy
@@ -223,6 +254,15 @@ double CfrTrainer::eval_br(
 {
 	if (state.is_terminal()) {
 		return prob * state.utility(br_player);
+	}
+
+	if (state.is_chance()) {
+		double total = 0.0;
+		for (auto& outcome : state.chance_outcomes()) {
+			total += eval_br(*outcome.state, br_player,
+							 prob * outcome.probability, br_actions);
+		}
+		return total;
 	}
 	
 	int player = state.current_player();
@@ -315,4 +355,35 @@ double CfrTrainer::exploitability(RootFn roots_fn) const {
 	return total_exploit;
 }
 
+// - CfrTrainer: JSON serialization
+
+std::string CfrTrainer::serialize_json() const {
+	std::map<std::string, const InfoNode*> sorted;
+	for (auto& [key, node] : nodes_) {
+		sorted[key] = &node;
+	}
+
+	std::ostringstream ss;
+	ss << "{\n";
+	ss << "  \"iterations\": " << iterations_ << ",\n";
+	ss << "  \"num_info_sets\": " << nodes_.size() << ",\n";
+    ss << "  \"info_sets\": {\n";
+
+	bool first = true;
+	for (auto& [key, node] : sorted) {
+		if (!first) ss << ",\n";
+		first = false;
+		auto avg = node->average_strategy();
+		ss << "   \"" << key << "\" : [";
+		for (int a = 0; a < node->num_actions; ++a) {
+			if (a > 0) ss << ", ";
+			ss << avg[static_cast<std::size_t>(a)];
+		}
+		ss << "]";
+	}
+
+	ss << "\n }\n}\n";
+	return ss.str();
 }
+
+} // namespace bluefish
