@@ -11,8 +11,8 @@ namespace bluefish {
 
 // Information set node
 struct InfoNode {
-	std::vector<double> regret_sum;
-	std::vector<double> strategy_sum;
+	std::vector<double> regret_sum{};
+	std::vector<double> strategy_sum{};
 	int num_actions = 0;
 
 	void init(int n);
@@ -37,7 +37,7 @@ public:
 	int64_t iterations() const { return iterations_; }
 
 private:
-	InfoMap nodes_;
+	InfoMap nodes_{};
 	int64_t iterations_ = 0;
 
 	// Recursive CFR. Returns utility for player 0
