@@ -16,7 +16,6 @@
 #include "bluefish/leduc.h"
 
 #include <cmath>
-#include <set>
 #include <string>
 
 using namespace bluefish;

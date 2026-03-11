@@ -81,8 +81,8 @@ public:
 
 	// Information sets
 	std::string info_set_key() const override {
-		std::string key(1, kCardName[cards_[current_player()]]);
-		key.append(history_, len_);
+		std::string key(1, kCardName[cards_[static_cast<std::size_t>(current_player())]]);
+		key.append(history_, static_cast<std::size_t>(len_));
 		return key;
 	}
 

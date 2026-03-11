@@ -76,7 +76,7 @@ public:
 
 		std::string info_set_key() const override {
 			std::string key;
-			key += kRankName[rank(cards_[acting_])];
+			key += kRankName[rank(cards_[static_cast<std::size_t>(acting_)])];
 			if (board_ >= 0) {
 				key += kRankName[rank(board_)];
 			}
@@ -114,7 +114,8 @@ public:
 
 			case kCall:
 				if (has_bet_) {
-					next->stakes_[acting_] = stakes_[1 - acting_];
+					next->stakes_[static_cast<std::size_t>(acting_)] 
+						= stakes_[1 - static_cast<std::size_t>(acting_)];
 					hist_char = 'c';
 					next->end_round();
 				} else {
@@ -132,7 +133,8 @@ public:
 			case kRaise:
 				assert(bets_ < kMaxRaises);
 				hist_char = has_bet_ ? 'r' : 'b';
-				next->stakes_[acting_] = stakes_[1 - acting_] + raise_size();
+				next->stakes_[static_cast<std::size_t>(acting_)] 
+					= stakes_[1 - static_cast<std::size_t>(acting_)] + raise_size();
 				next->bets_++;
 				next->round_actions_++;
 				next->acting_ = 1 - acting_;
