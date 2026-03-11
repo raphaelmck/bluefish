@@ -1,8 +1,10 @@
 // cfr.cpp - Vanilla CFR + info-set-aware best response
 
 #include "bluefish/cfr.h"
+#include <cstddef>
 #include <string>
 #include <cassert>
+#include <numeric>
 
 namespace bluefish {
 
@@ -28,6 +30,20 @@ std::vector<double> InfoNode::current_strategy() const {
 		std::fill(strat.begin(), strat.end(), 1.0 / static_cast<double>(num_actions));
 	}
 	return strat;
+}
+
+std::vector<double> InfoNode::average_strategy() const {
+	std::vector<double> avg(static_cast<std::size_t>(num_actions));
+	double total = std::accumulate(strategy_sum.begin(), strategy_sum.end(), 0.0);
+
+	if (total > 0.0) {
+		for (int a = 0; a < num_actions; ++a) {
+			avg[static_cast<std::size_t>(a)] = strategy_sum[static_cast<std::size_t>(a)] / total;
+		}
+	} else {
+		std::fill(avg.begin(), avg.end(), 1.0 / static_cast<double>(num_actions));
+	}
+	return avg;
 }
 
 double CfrTrainer::train(int iterations, RootFn root_fn) {
