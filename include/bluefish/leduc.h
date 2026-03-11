@@ -146,6 +146,30 @@ public:
 			next->hist_len_ = hist_len_ + 1;
 			return next;
 		}
+	
+		// - Chance - 
+
+		std::vector<ChanceOutcome> chance_outcomes() const override {
+			assert(status_ == Status::kChance);
+			std::vector<ChanceOutcome> outcomes;
+			int remaining = kNumCards - 2;
+			
+			for (int c = 0; c < kNumCards; ++c) {
+				if (c == cards_[0] || c == cards_[1]) continue;
+
+				auto next = std::make_unique<LeducState>(*this);
+				next->board_ = c;
+				next->round_ = 1;
+				next->status_ = Status::kPlaying;
+				next->bets_ = 0;
+				next->has_bet_ = false;
+				next->history_[hist_len_] = '/'; // round separator
+				next->hist_len_ = hist_len_ + 1;
+
+				outcomes.push_back({std::move(next), 1.0 / static_cast<double>(remaining)});
+			}
+			return outcomes;
+		}
 
 private:
 	enum class Status { kPlaying, kChance, kFolded, kShowdown };
@@ -188,5 +212,24 @@ private:
 	}
 };
 
+// - Root state enumeration -
+// All 30 ordered deals (6 cards, choose 2)
+
+inline std::vector<RootState> root_states() {
+	std::vector<RootState> roots;
+	roots.reserve(30);
+	constexpr double prob = 1.0 / 30.0;
+	for (int c0 = 0; c0 < kNumCards; ++c0) {
+		for (int c1 = 0; c1 < kNumCards; ++c1) {
+			if (c0 != c1) {
+				roots.push_back({
+					std::make_unique<LeducState>(c0, c1), prob
+				});
+			}
+		}
+	}
+	return roots;
 }
-}
+
+} // namespace leduc
+} // namespce bluefish
