@@ -136,6 +136,7 @@ public:
 				next->stakes_[static_cast<std::size_t>(acting_)] 
 					= stakes_[1 - static_cast<std::size_t>(acting_)] + raise_size();
 				next->bets_++;
+				next->has_bet_ = true;
 				next->round_actions_++;
 				next->acting_ = 1 - acting_;
 				break;
@@ -163,8 +164,10 @@ public:
 				next->board_ = c;
 				next->round_ = 1;
 				next->status_ = Status::kPlaying;
+				next->acting_ = 0;
 				next->bets_ = 0;
 				next->has_bet_ = false;
+				next->round_actions_ = 0;
 				next->history_[hist_len_] = '/'; // round separator
 				next->hist_len_ = hist_len_ + 1;
 
@@ -182,7 +185,7 @@ private:
 	std::array<int, 2> stakes_;
 	int bets_ = 0;
 	bool has_bet_= false;
-	int round_actions_ = false;
+	int round_actions_ = 0;
 	Status status_ = Status::kPlaying;
 	int folder_ = -1;
 	char history_[24] = {};
