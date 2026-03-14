@@ -14,6 +14,8 @@
 #include "bluefish/cfr.h"
 #include "bluefish/kuhn.h"
 
+#include <cmath>
+
 using namespace bluefish;
 using namespace bluefish::kuhn;
 
@@ -152,7 +154,7 @@ TEST_CASE("info node: average strategy normalization") {
 // ═══════════════════════════════════════════════════════════════════
 
 TEST_CASE("cfr: exploitability decreases with iterations") {
-    CfrTrainer trainer;
+    CfrSolver trainer;
     auto root_fn = root_states;
 
     trainer.train(100, root_fn);
@@ -173,7 +175,7 @@ TEST_CASE("cfr: exploitability decreases with iterations") {
 }
 
 TEST_CASE("cfr: discovers all 12 information sets") {
-    CfrTrainer trainer;
+    CfrSolver trainer;
     trainer.train(1, root_states);
     // Kuhn poker has 12 info sets: 3 cards × {P0 has 2 info sets, P1 has 2}
     // Actually: P0 at root (3), P1 after "p" (3), P1 after "b" (3),
@@ -182,7 +184,7 @@ TEST_CASE("cfr: discovers all 12 information sets") {
 }
 
 TEST_CASE("cfr: game value converges to -1/18") {
-    CfrTrainer trainer;
+    CfrSolver trainer;
     double gv = trainer.train(50'000, root_states);
 
     // Game value for P0 in Kuhn poker = −1/18 ≈ −0.0556.
@@ -190,7 +192,7 @@ TEST_CASE("cfr: game value converges to -1/18") {
 }
 
 TEST_CASE("cfr: known Nash equilibrium properties after convergence") {
-    CfrTrainer trainer;
+    CfrSolver trainer;
     trainer.train(100'000, root_states);
 
     auto get_avg = [&](const std::string& key) {

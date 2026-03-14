@@ -16,6 +16,7 @@
 #include "bluefish/leduc.h"
 
 #include <cmath>
+#include <set>
 #include <string>
 
 using namespace bluefish;
@@ -260,7 +261,7 @@ TEST_CASE("leduc: root states enumerate 30 deals") {
 // ═══════════════════════════════════════════════════════════════════
 
 TEST_CASE("leduc: cfr exploitability decreases") {
-    CfrTrainer trainer;
+    CfrSolver trainer;
     auto root_fn = root_states;
 
     trainer.train(200, root_fn);
@@ -278,14 +279,14 @@ TEST_CASE("leduc: cfr exploitability decreases") {
 }
 
 TEST_CASE("leduc: cfr game value converges near -0.0856") {
-    CfrTrainer trainer;
+    CfrSolver trainer;
     double gv = trainer.train(20'000, root_states);
     // Known Nash game value ≈ −0.0856.
     CHECK(gv == doctest::Approx(-0.0856).epsilon(0.02));
 }
 
 TEST_CASE("leduc: discovers expected number of info sets") {
-    CfrTrainer trainer;
+    CfrSolver trainer;
     trainer.train(1, root_states);
     // Leduc with max 2 raises per round has 288 info sets (144 per player).
     // Exact count depends on how many are reachable. Just check a range.
@@ -295,7 +296,7 @@ TEST_CASE("leduc: discovers expected number of info sets") {
 }
 
 TEST_CASE("leduc: json serialization is valid") {
-    CfrTrainer trainer;
+    CfrSolver trainer;
     trainer.train(10, root_states);
 
     std::string json = trainer.serialize_json();
