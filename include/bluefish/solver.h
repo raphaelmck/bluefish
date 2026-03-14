@@ -50,7 +50,7 @@ protected:
 
 private:
 	// - Best response internals -
-	struct IsInfo { int dept; int num_actions; };
+	struct IsInfo { int depth; int num_actions; };
 
 	void discover_info_sets(
 		const GameState& state, int br_player, int br_depth,
