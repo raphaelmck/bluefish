@@ -9,6 +9,9 @@
 namespace bluefish {
 
 // - Information set node -
+// Stores accumulated regrets and strategy sums for one information set
+// All CFR-family algorithms use the same node structure and differ on how they 
+// update the regret and strategy sum
 
 struct InfoNode {
 	std::vector<double> regret_sum;
@@ -17,11 +20,29 @@ struct InfoNode {
 
 	void init(int n);
 
+	// Regret matching, uniform fallback when all regrets <= 0
 	std::vector<double> current_strategy() const;
+	// Time-averaged strategy - the convergent Nash output
 	std::vector<double> average_strategy() const;
 };
 
+// - Traversal statistics -
+// Lightweight counters incremented during CFR traversal
+// All counters are cumulative accross train() calls
+
+struct Stats {
+	int64_t nodes_touched = 0;
+	int64_t terminal_visits = 0;
+	int64_t info_set_visits = 0;
+	int64_t chance_visits = 0;
+
+	void reset() {
+		nodes_touched = terminal_visits = info_set_visits = chance_visits = 0;
+	}
+};
+
 // - Solver base class -
+
 class Solver {
 public:
 	using RootFn = std::function<std::vector<RootState>()>;
@@ -38,6 +59,10 @@ public:
 	double exploitability(RootFn root_fn) const;
 	std::string serialize_json() const;
 
+	// - Validation -
+
+	virtual std::string validate() const;
+
 	// - Accessors -
 
 	const InfoMap& info_map() const { return nodes_; }
@@ -47,6 +72,7 @@ public:
 protected:
 	InfoMap nodes_;
 	int64_t iterations_ = 0;
+	Stats stats_;
 
 private:
 	// - Best response internals -
@@ -63,9 +89,9 @@ private:
 		const std::unordered_map<std::string, int>& resolved,
 		std::unordered_map<std::string, std::vector<double>>& acc) const;
 	
-		double eval_br(
-			const GameState& state, int br_player, double prob,
-			const std::unordered_map<std::string, int>& br_actions) const;
+	double eval_br(
+		const GameState& state, int br_player, double prob,
+		const std::unordered_map<std::string, int>& br_actions) const;
 };
 
 } // namespace bluefish
