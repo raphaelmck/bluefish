@@ -46,10 +46,16 @@ double MccfrSolver::train(int iterations, RootFn root_fn) {
 
 double MccfrSolver::traverse(const GameState& state, int traverser,
 							 double /*pi_traverser*/, double /*pi_opponent*/) {
-	if (state.is_terminal())
+
+	++stats_.nodes_touched;
+
+	if (state.is_terminal()) {
+		++stats_.terminal_visits;
 		return state.utility(traverser);
+	}
 	
 	if (state.is_chance()) {
+		++stats_.chance_visits;
 		auto outcomes = state.chance_outcomes();
 		std::vector<double> probs;
 		probs.reserve(outcomes.size());
@@ -59,6 +65,8 @@ double MccfrSolver::traverse(const GameState& state, int traverser,
 		return traverse(*outcomes[static_cast<std::size_t>(idx)].state, traverser, 1.0, 1.0);
 	}
 
+	++stats_.info_set_visits;
+	
 	int player = state.current_player();
 	auto actions = state.legal_actions();
 	auto n = static_cast<int>(actions.size());

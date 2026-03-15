@@ -20,16 +20,23 @@ double CfrSolver::train(int iterations, RootFn root_fn) {
 }
 
 double CfrSolver::cfr(const GameState& state, double pi0, double pi1) {
-	if (state.is_terminal()) 
+	++stats_.nodes_touched;
+
+	if (state.is_terminal()) {
+		++stats_.terminal_visits;
 		return state.utility(0);
+	}
 
 	if (state.is_chance()) {
+		++stats_.chance_visits;
 		double ev = 0.0;
 		for (auto& o : state.chance_outcomes())
 			ev += o.probability * cfr(*o.state, pi0 * o.probability,
 									pi1 * o.probability);
 		return ev;
 	}
+
+	++stats_.info_set_visits;
 
 	int player = state.current_player();
 	auto actions = state.legal_actions();

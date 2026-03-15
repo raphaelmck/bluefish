@@ -20,16 +20,23 @@ double CfrPlusSolver::train(int iterations, RootFn root_fn) {
 }
 
 double CfrPlusSolver::cfr_plus(const GameState& state, double pi0, double pi1) {
-	if (state.is_terminal())
+	++stats_.nodes_touched;
+
+	if (state.is_terminal()) {
+		++stats_.terminal_visits;
 		return state.utility(0);
+	}
 
 	if (state.is_chance()) {
+		++stats_.chance_visits;
 		double ev = 0.0;
 		for (auto& o : state.chance_outcomes())
 			ev += o.probability * cfr_plus(*o.state, pi0 * o.probability, 
 										pi1 * o.probability);
 		return ev;
 	}
+
+	++stats_.info_set_visits;
 
 	int player = state.current_player();
 	auto actions = state.legal_actions();
@@ -71,4 +78,21 @@ double CfrPlusSolver::cfr_plus(const GameState& state, double pi0, double pi1) {
 
 	return node_util;
 }
+
+std::string CfrPlusSolver::validate() const {
+	std::string base_err = Solver::validate();
+	if (!base_err.empty()) return base_err;
+ 
+    // CFR+-specific: all cumulative regrets must be >= 0.
+    for (auto& [key, node] : nodes_) {
+        for (int a = 0; a < node.num_actions; ++a) {
+            if (node.regret_sum[static_cast<std::size_t>(a)] < -1e-12)
+                return "cfr+ invariant: info set '" + key +
+                       "' has negative regret " +
+                       std::to_string(node.regret_sum[static_cast<std::size_t>(a)]);
+        }
+    }
+    return {};
 }
+
+} // namespace bluefish
