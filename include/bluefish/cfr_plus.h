@@ -10,6 +10,7 @@ class CfrPlusSolver final : public Solver {
 public:
 	double train(int iterations, RootFn root_fn) override;
 	std::string name() const override { return "cfr+"; }
+	std::string validate() const override;
 
 private:
 	double cfr_plus(const GameState& state, double pi0, double pi1);

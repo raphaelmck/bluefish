@@ -171,12 +171,11 @@ double Solver::accumulate_br(
 
 // Evaluate utility under a fully resolved BR strategy
 double Solver::eval_br(
-		const GameState& state, int br_player, double prob,
-		const std::unordered_map<std::string, int>& br_actions) const
+	const GameState& state, int br_player, double prob,
+	const std::unordered_map<std::string, int>& br_actions) const
 {
-	if (state.is_terminal()) {
+	if (state.is_terminal())
 		return prob * state.utility(br_player);
-	}
 
 	if (state.is_chance()) {
 		double total = 0.0;
@@ -221,9 +220,8 @@ double Solver::exploitability(RootFn roots_fn) const {
 		std::unordered_map<std::string, IsInfo> info;
 		{
 			auto roots = roots_fn();
-			for (auto& r : roots) {
+			for (auto& r : roots)
 				discover_info_sets(*r.state, br_player, 0, info);
-			}
 		}
 
 		int max_depth = 0;
@@ -307,4 +305,25 @@ std::string Solver::serialize_json() const {
 	return ss.str();
 }
 
+// - Validation -
+
+std::string Solver::validate() const {
+	for (auto& [key, node] : nodes_) {
+		if (node.num_actions <= 0)
+			return "info set '" + key + "' has num_actions=" + std::to_string(node.num_actions);
+
+		auto n = static_cast<std::size_t>(node.num_actions);
+		if (node.regret_sum.size() != n)
+			return "info set '" + key + "' regret_sum size mismatch";
+        if (node.strategy_sum.size() != n)
+            return "info set '" + key + "' strategy_sum size mismatch";
+ 
+        for (int a = 0; a < node.num_actions; ++a) {
+            if (node.strategy_sum[static_cast<std::size_t>(a)] < 0.0)
+                return "info set '" + key + "' has negative strategy_sum";
+        }
+    }
+    return {};
 }
+
+} // namespace bluefish
