@@ -68,6 +68,7 @@ public:
 	const InfoMap& info_map() const { return nodes_; }
 	std::size_t num_info_sets() const { return nodes_.size(); }
 	int64_t iterations() const { return iterations_; }
+	const Stats& stats() const { return stats_; }
 
 protected:
 	InfoMap nodes_;
