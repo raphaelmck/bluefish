@@ -154,9 +154,12 @@ double Solver::accumulate_br(
 	} 
 	// Opponent: follow their average strategy
 	std::string key = state.info_set_key();
+	std::vector<double> avg(static_cast<std::size_t>(n), 1.0 / static_cast<double>(n));
+
 	auto it = nodes_.find(key);
-	assert(it != nodes_.end());
-	auto avg = it->second.average_strategy();
+	if (it != nodes_.end() &&it->second.num_actions == n) {
+		avg = it->second.average_strategy();
+	}
 
 	double total = 0.0;
 	for (int a = 0; a < n; ++a) {
@@ -197,9 +200,12 @@ double Solver::eval_br(
 		return eval_br(*next, br_player, prob, br_actions);
 	} else {
 		std::string key = state.info_set_key();
+		std::vector<double> avg(static_cast<std::size_t>(n), 1.0 / static_cast<double>(n));
+
 		auto it = nodes_.find(key);
-		assert(it != nodes_.end());
-		auto avg = it->second.average_strategy();
+		if (it != nodes_.end() && it->second.num_actions == n) {
+			avg = it->second.average_strategy();
+		}
 
 		double total = 0.0;
 		for (int a = 0; a < n; ++a) {
