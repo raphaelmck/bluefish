@@ -38,7 +38,7 @@ struct RegretTable {
 struct FlatGame {
 	std::vector<FlatNode> nodes;
 	std::vector<int32_t> children;
-	std::vector<std::string> chance_probs;
+	std::vector<double> chance_probs;
 
 	int num_info_sets = 0;
 	std::vector<int> is_num_actions;
@@ -47,7 +47,7 @@ struct FlatGame {
 	static FlatGame compile(Solver::RootFn root_fn);
 
 	int num_nodes() const { return static_cast<int>(nodes.size()); }
-	int num_decition_nodes() const;
+	int num_decision_nodes() const;
 	int num_terminal_nodes() const;
 	int num_chance_nodes() const;
 
