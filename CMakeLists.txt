@@ -6,19 +6,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Compiler warnings
+# - Compiler warnings -
 add_compile_options(-Wall -Wextra -Wpedantic -Wshadow -Wconversion)
 
-# Core library
+# - Core library -
 add_library(bluefish_core
 	src/solver.cpp
     src/cfr.cpp
     src/cfr_plus.cpp
     src/mccfr.cpp
+    src/flat_game.cpp
+    src/fast_cfr.cpp
 )
 target_include_directories(bluefish_core PUBLIC include)
 
-# Solver CLI
+# - Solver CLI -
 add_executable(solve app/solve.cpp)
 target_link_libraries(solve PRIVATE bluefish_core)
 
@@ -28,7 +30,7 @@ target_link_libraries(experiment PRIVATE bluefish_core)
 add_executable(bench app/bench.cpp)
 target_link_libraries(bench PRIVATE bluefish_core)
 
-# Tests
+# - Tests -
 enable_testing()
 
 include(FetchContent)
