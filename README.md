@@ -31,33 +31,26 @@ Requires CMake >= 3.20 and a C++20 compiler.
  
 ```
 include/bluefish/
-  game.h         GameState interface: decision / chance / terminal nodes
-  kuhn.h         Kuhn poker   (3 cards, 1 round, 12 info sets)
-  leduc.h        Leduc poker  (6 cards, 2 rounds, 288 info sets)
-  solver.h       Solver base class, InfoNode, Stats, exploitability, JSON export
-  cfr.h          Vanilla CFR
-  cfr_plus.h     CFR+
-  mccfr.h        External-sampling MCCFR
+  game.h         GameState interface (virtual, clean, for prototyping)
+  kuhn.h         Kuhn poker   (3 cards, 12 info sets)
+  leduc.h        Leduc poker  (6 cards, 288 info sets)
+  solver.h       Solver base: InfoNode, Stats, exploitability, validation
+  cfr.h          Vanilla CFR (virtual GameState traversal)
+  cfr_plus.h     CFR+ (virtual)
+  mccfr.h        External-sampling MCCFR (virtual)
+  flat_game.h    FlatGame: compiled tree in contiguous arrays
+  fast_cfr.h     Fast CFR/CFR+/MCCFR on flat trees
  
 src/
-  solver.cpp     Shared infrastructure: regret matching, best response, validation
-  cfr.cpp        Full-tree traversal with reach-probability weighting
-  cfr_plus.cpp   Regret flooring + linear averaging
-  mccfr.cpp      Sampled traversal with alternating traverser
- 
-app/
-  solve.cpp      CLI solver with convergence logging, CSV/JSON export, stats
-  experiment.cpp Reproducible experiment harness (all combos, multiple seeds)
-  bench.cpp      Throughput benchmark with warmup and median-of-N trials
+  solver.cpp     Shared: regret matching, best response, validation, JSON
+  cfr.cpp        Vanilla CFR traversal
+  cfr_plus.cpp   CFR+ traversal
+  mccfr.cpp      MCCFR traversal
+  flat_game.cpp  Game tree compilation
+  fast_cfr.cpp   Zero-allocation traversal (CFR, CFR+, MCCFR)
 ```
 
 Every algorithm inherits from `Solver` and shares the same `InfoNode` structure, exploitability computation, validation, and serialization. They differ only in their traversal logic.
-
-## References
-
-- Neller & Lanctot. *An Introduction to Counterfactual Regret Minimization.*
-- Tammelin (2014). *Solving Large Imperfect Information Games Using CFR+.*
-- Lanctot et al. (2009). *Monte Carlo Sampling for Regret Minimization in Extensive Games.*
 
 ## Roadmap
 
@@ -66,4 +59,14 @@ Every algorithm inherits from `Solver` and shares the same `InfoNode` structure,
 | 1     | Kuhn poker, vanilla CFR, exploitability, tests      | DONE   |
 | 2     | Leduc poker, generic engine, strategy serialization | DONE   |
 | 2     | CFR+, external-sampling MCCFR, algorithm comparison | DONE   |
-| 4     | Benchmarks, profiling                               | DONE   |
+| 4     | Benchmarks, profiling, experiment infra             | DONE   |
+| 5     | Flat compiled trees, performance increase           |        |
+| 6     | Custom game                                         |        |
+
+## References
+
+- Neller & Lanctot. *An Introduction to Counterfactual Regret Minimization.*
+- Tammelin (2014). *Solving Large Imperfect Information Games Using CFR+.*
+- Lanctot et al. (2009). *Monte Carlo Sampling for Regret Minimization in Extensive Games.*
+
+
