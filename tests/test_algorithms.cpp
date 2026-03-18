@@ -10,6 +10,7 @@
 #include "bluefish/cfr.h"
 #include "bluefish/cfr_plus.h"
 #include "bluefish/mccfr.h"
+#include "bluefish/fast_cfr.h"
 #include "bluefish/kuhn.h"
 #include "bluefish/leduc.h"
 
@@ -346,5 +347,140 @@ TEST_CASE("validate: CFR+ regrets are non-negative on Leduc") {
         for (int a = 0; a < node.num_actions; ++a) {
             CHECK(node.regret_sum[static_cast<std::size_t>(a)] >= -1e-12);
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FlatGame compilation
+// ═══════════════════════════════════════════════════════════════════
+
+TEST_CASE("flat: kuhn compilation") {
+    auto game = FlatGame::compile(kuhn::root_states);
+    CHECK(game.num_info_sets == 12);
+    CHECK(game.num_nodes() > 0);
+    CHECK(game.num_terminal_nodes() > 0);
+    CHECK(game.num_decision_nodes() > 0);
+    CHECK(game.memory_bytes() > 0);
+}
+
+TEST_CASE("flat: leduc compilation") {
+    auto game = FlatGame::compile(leduc::root_states);
+    CHECK(game.num_info_sets == 288);
+    CHECK(game.num_nodes() > 100);
+    CHECK(game.num_chance_nodes() > 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Fast solver correctness — must match slow solvers
+// ═══════════════════════════════════════════════════════════════════
+
+TEST_CASE("fast-cfr: kuhn converges to correct game value") {
+    auto root_fn = kuhn::root_states;
+    auto game = FlatGame::compile(root_fn);
+    FastCfrSolver solver(std::move(game), root_fn);
+    double gv = solver.train(50'000, root_fn);
+    CHECK(gv == doctest::Approx(-1.0 / 18.0).epsilon(0.01));
+    CHECK(solver.exploitability(root_fn) < 0.01);
+}
+
+TEST_CASE("fast-cfr: matches slow CFR exploitability on kuhn") {
+    auto root_fn = kuhn::root_states;
+    constexpr int iters = 10'000;
+
+    CfrSolver slow;
+    slow.train(iters, root_fn);
+
+    auto game = FlatGame::compile(root_fn);
+    FastCfrSolver fast(std::move(game), root_fn);
+    fast.train(iters, root_fn);
+
+    double slow_e = slow.exploitability(root_fn);
+    double fast_e = fast.exploitability(root_fn);
+    // Should be very close (same algorithm, same traversal order).
+    CHECK(fast_e == doctest::Approx(slow_e).epsilon(0.001));
+}
+
+TEST_CASE("fast-cfr+: kuhn converges and validates") {
+    auto root_fn = kuhn::root_states;
+    auto game = FlatGame::compile(root_fn);
+    FastCfrPlusSolver solver(std::move(game), root_fn);
+    solver.train(10'000, root_fn);
+    CHECK(solver.exploitability(root_fn) < 0.02);
+    CHECK(solver.validate().empty());
+}
+
+TEST_CASE("fast-mccfr: kuhn converges") {
+    auto root_fn = kuhn::root_states;
+    auto game = FlatGame::compile(root_fn);
+    FastMccfrSolver solver(std::move(game), root_fn, 42);
+    solver.train(100'000, root_fn);
+    CHECK(solver.exploitability(root_fn) < 0.02);
+}
+
+TEST_CASE("fast-cfr: leduc converges") {
+    auto root_fn = leduc::root_states;
+    auto game = FlatGame::compile(root_fn);
+    FastCfrSolver solver(std::move(game), root_fn);
+    solver.train(5'000, root_fn);
+    CHECK(solver.exploitability(root_fn) < 0.5);
+    CHECK(solver.num_info_sets() == 288);
+}
+
+TEST_CASE("fast-cfr: matches slow CFR exploitability on leduc") {
+    auto root_fn = leduc::root_states;
+    constexpr int iters = 5'000;
+
+    CfrSolver slow;
+    slow.train(iters, root_fn);
+
+    auto game = FlatGame::compile(root_fn);
+    FastCfrSolver fast(std::move(game), root_fn);
+    fast.train(iters, root_fn);
+
+    double slow_e = slow.exploitability(root_fn);
+    double fast_e = fast.exploitability(root_fn);
+    // Close but not identical: flat tree's synthetic root chance node
+    // folds deal probabilities differently than iterating root states.
+    CHECK(fast_e == doctest::Approx(slow_e).epsilon(0.15));
+    CHECK(fast_e < 0.05);
+}
+
+TEST_CASE("fast-cfr: stats match slow CFR node counts") {
+    auto root_fn = kuhn::root_states;
+    constexpr int iters = 100;
+
+    CfrSolver slow;
+    slow.train(iters, root_fn);
+
+    auto game = FlatGame::compile(root_fn);
+    FastCfrSolver fast(std::move(game), root_fn);
+    fast.train(iters, root_fn);
+
+    // Flat tree has a synthetic root chance node, so chance_visits
+    // will differ. But total info_set_visits should match.
+    CHECK(fast.stats().info_set_visits == slow.stats().info_set_visits);
+    CHECK(fast.stats().terminal_visits == slow.stats().terminal_visits);
+}
+
+TEST_CASE("fast: all fast solvers validate on leduc") {
+    auto root_fn = leduc::root_states;
+
+    SUBCASE("fast-cfr") {
+        auto game = FlatGame::compile(root_fn);
+        FastCfrSolver s(std::move(game), root_fn);
+        s.train(100, root_fn);
+        CHECK(s.validate().empty());
+    }
+    SUBCASE("fast-cfr+") {
+        auto game = FlatGame::compile(root_fn);
+        FastCfrPlusSolver s(std::move(game), root_fn);
+        s.train(100, root_fn);
+        CHECK(s.validate().empty());
+    }
+    SUBCASE("fast-mccfr") {
+        auto game = FlatGame::compile(root_fn);
+        FastMccfrSolver s(std::move(game), root_fn, 42);
+        s.train(1000, root_fn);
+        CHECK(s.validate().empty());
     }
 }

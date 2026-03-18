@@ -9,6 +9,7 @@
 #include "bluefish/cfr.h"
 #include "bluefish/cfr_plus.h"
 #include "bluefish/mccfr.h"
+#include "bluefish/fast_cfr.h"
 #include "bluefish/kuhn.h"
 #include "bluefish/leduc.h"
 
@@ -178,7 +179,8 @@ int main(int argc, char* argv[]) {
             csv_path = argv[++i];
         } else if (arg == "--seed" && i + 1 < argc) {
             seed = static_cast<uint64_t>(std::atoll(argv[++i]));
-        } else if (arg == "cfr" || arg == "cfr+" || arg == "mccfr") {
+        } else if (arg == "cfr" || arg == "cfr+" || arg == "mccfr" ||
+                   arg == "fast-cfr" || arg == "fast-cfr+" || arg == "fast-mccfr") {
             algo_name = arg;
         } else {
             int n = std::atoi(arg.c_str());
@@ -211,6 +213,15 @@ int main(int argc, char* argv[]) {
         solver = std::make_unique<bluefish::CfrPlusSolver>();
     else if (algo_name == "mccfr")
         solver = std::make_unique<bluefish::MccfrSolver>(seed);
+    else if (algo_name == "fast-cfr")
+        solver = std::make_unique<bluefish::FastCfrSolver>(
+            bluefish::FlatGame::compile(root_fn), root_fn);
+    else if (algo_name == "fast-cfr+")
+        solver = std::make_unique<bluefish::FastCfrPlusSolver>(
+            bluefish::FlatGame::compile(root_fn), root_fn);
+    else if (algo_name == "fast-mccfr")
+        solver = std::make_unique<bluefish::FastMccfrSolver>(
+            bluefish::FlatGame::compile(root_fn), root_fn, seed);
     else { usage(); return 1; }
 
     std::cout << "Bluefish — " << game_name << " poker / "
