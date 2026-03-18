@@ -1,4 +1,4 @@
-// fast_cfr.cpp - High-performance CFR-family solvers
+// fast_cfr.cpp — High-performance CFR-family solvers.
 
 #include "bluefish/fast_cfr.h"
 
@@ -7,24 +7,42 @@
 
 namespace bluefish {
 
-// - Fast vanilla CFR -
+// Fast vanilla CFR
 
 FastCfrSolver::FastCfrSolver(FlatGame game, RootFn root_fn)
     : game_(std::move(game)), root_fn_(std::move(root_fn)) {
     table_.init(game_.num_info_sets, game_.is_num_actions);
 }
 
-void FastCfrSolver::sync() {
-    table_.to_info_map(nodes_, game_.is_keys);
+void FastCfrSolver::ensure_synced() const {
+    if (!synced_) {
+        table_.to_info_map(
+            const_cast<InfoMap&>(nodes_), game_.is_keys);
+        const_cast<bool&>(synced_) = true;
+    }
+}
+
+double FastCfrSolver::exploitability(RootFn /*root_fn*/) const {
+    return flat_exploitability(game_, table_);
+}
+
+std::string FastCfrSolver::serialize_json() const {
+    ensure_synced();
+    return Solver::serialize_json();
+}
+
+const Solver::InfoMap& FastCfrSolver::info_map() const {
+    ensure_synced();
+    return nodes_;
 }
 
 double FastCfrSolver::train(int iterations, RootFn /*root_fn*/) {
+    synced_ = false;
     double total = 0.0;
     for (int t = 0; t < iterations; ++t) {
         total += cfr(0, 1.0, 1.0);
         ++iterations_;
     }
-    sync();
     return total / static_cast<double>(iterations);
 }
 
@@ -55,7 +73,7 @@ double FastCfrSolver::cfr(int ni, double pi0, double pi1) {
     int off = table_.offset[static_cast<std::size_t>(is)];
     int fc = n.first_child;
 
-    // Inline regret matching - no allocation
+    // Inline regret matching — no allocation
     double sigma[kMaxActions];
     double pos_sum = 0.0;
     for (int a = 0; a < na; ++a) {
@@ -95,24 +113,42 @@ double FastCfrSolver::cfr(int ni, double pi0, double pi1) {
     return node_util;
 }
 
-// - Fast CFR+ -
+// Fast CFR+
 
 FastCfrPlusSolver::FastCfrPlusSolver(FlatGame game, RootFn root_fn)
     : game_(std::move(game)), root_fn_(std::move(root_fn)) {
     table_.init(game_.num_info_sets, game_.is_num_actions);
 }
 
-void FastCfrPlusSolver::sync() {
-    table_.to_info_map(nodes_, game_.is_keys);
+void FastCfrPlusSolver::ensure_synced() const {
+    if (!synced_) {
+        table_.to_info_map(
+            const_cast<InfoMap&>(nodes_), game_.is_keys);
+        const_cast<bool&>(synced_) = true;
+    }
+}
+
+double FastCfrPlusSolver::exploitability(RootFn /*root_fn*/) const {
+    return flat_exploitability(game_, table_);
+}
+
+std::string FastCfrPlusSolver::serialize_json() const {
+    ensure_synced();
+    return Solver::serialize_json();
+}
+
+const Solver::InfoMap& FastCfrPlusSolver::info_map() const {
+    ensure_synced();
+    return nodes_;
 }
 
 double FastCfrPlusSolver::train(int iterations, RootFn /*root_fn*/) {
+    synced_ = false;
     double total = 0.0;
     for (int t = 0; t < iterations; ++t) {
         total += cfr_plus(0, 1.0, 1.0);
         ++iterations_;
     }
-    sync();
     return total / static_cast<double>(iterations);
 }
 
@@ -180,15 +216,17 @@ double FastCfrPlusSolver::cfr_plus(int ni, double pi0, double pi1) {
             table_.regret[uoa] += pi0 * (node_util - action_util[a]);
             table_.strategy_sum[uoa] += t_weight * pi1 * sigma[a];
         }
-        // CFR+ regret floor
         table_.regret[uoa] = std::max(0.0, table_.regret[uoa]);
     }
     return node_util;
 }
 
 std::string FastCfrPlusSolver::validate() const {
+    // Check base invariants via lazy sync
+    ensure_synced();
     std::string base_err = Solver::validate();
     if (!base_err.empty()) return base_err;
+    // CFR+: all regrets must be non-negative
     for (int is = 0; is < game_.num_info_sets; ++is) {
         int off = table_.offset[static_cast<std::size_t>(is)];
         int na = table_.num_actions[static_cast<std::size_t>(is)];
@@ -202,7 +240,7 @@ std::string FastCfrPlusSolver::validate() const {
     return {};
 }
 
-// - Fast external-sampling MCCFR -
+// Fast external-sampling MCCFR
 
 FastMccfrSolver::FastMccfrSolver(FlatGame game, RootFn root_fn,
                                   uint64_t seed)
@@ -210,8 +248,26 @@ FastMccfrSolver::FastMccfrSolver(FlatGame game, RootFn root_fn,
     table_.init(game_.num_info_sets, game_.is_num_actions);
 }
 
-void FastMccfrSolver::sync() {
-    table_.to_info_map(nodes_, game_.is_keys);
+void FastMccfrSolver::ensure_synced() const {
+    if (!synced_) {
+        table_.to_info_map(
+            const_cast<InfoMap&>(nodes_), game_.is_keys);
+        const_cast<bool&>(synced_) = true;
+    }
+}
+
+double FastMccfrSolver::exploitability(RootFn /*root_fn*/) const {
+    return flat_exploitability(game_, table_);
+}
+
+std::string FastMccfrSolver::serialize_json() const {
+    ensure_synced();
+    return Solver::serialize_json();
+}
+
+const Solver::InfoMap& FastMccfrSolver::info_map() const {
+    ensure_synced();
+    return nodes_;
 }
 
 int FastMccfrSolver::sample(const double* probs, int n) {
@@ -225,6 +281,7 @@ int FastMccfrSolver::sample(const double* probs, int n) {
 }
 
 double FastMccfrSolver::train(int iterations, RootFn /*root_fn*/) {
+    synced_ = false;
     double total = 0.0;
     for (int t = 0; t < iterations; ++t) {
         int traverser = static_cast<int>(iterations_ % 2);
@@ -232,7 +289,6 @@ double FastMccfrSolver::train(int iterations, RootFn /*root_fn*/) {
         total += (traverser == 0) ? v : -v;
         ++iterations_;
     }
-    sync();
     return total / static_cast<double>(iterations);
 }
 
@@ -260,7 +316,6 @@ double FastMccfrSolver::traverse(int ni, int traverser) {
     int off = table_.offset[static_cast<std::size_t>(is)];
     int fc = n.first_child;
 
-    // Inline regret matching
     double sigma[kMaxActions];
     double pos_sum = 0.0;
     for (int a = 0; a < na; ++a) {
@@ -276,7 +331,6 @@ double FastMccfrSolver::traverse(int ni, int traverser) {
     }
 
     if (n.player == traverser) {
-        // Traverse all actions
         double action_util[kMaxActions];
         double node_util = 0.0;
 
@@ -293,7 +347,6 @@ double FastMccfrSolver::traverse(int ni, int traverser) {
         return node_util;
     }
 
-    // Opponent: sample one action, accumulate strategy sum
     for (int a = 0; a < na; ++a) {
         table_.strategy_sum[static_cast<std::size_t>(off + a)] += sigma[a];
     }

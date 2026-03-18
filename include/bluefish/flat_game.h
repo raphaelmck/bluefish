@@ -30,6 +30,8 @@ struct RegretTable {
 
 	void init(int num_info_sets, const std::vector<int>& is_num_actions);
 
+	void avg_strategy(int is_id, double* out) const;
+
 	void to_info_map(Solver::InfoMap& out, const std::vector<std::string>& is_keys) const;
 };
 
@@ -44,6 +46,10 @@ struct FlatGame {
 	std::vector<int> is_num_actions;
 	std::vector<std::string> is_keys;
 
+	std::vector<int8_t> is_player;
+	std::vector<int> is_depth;
+	int max_depth[2] = {0, 0};
+
 	static FlatGame compile(Solver::RootFn root_fn);
 
 	int num_nodes() const { return static_cast<int>(nodes.size()); }
@@ -53,5 +59,9 @@ struct FlatGame {
 
 	std::size_t memory_bytes() const;
 };
+
+// - Flat exploitability -
+
+double flat_exploitability(const FlatGame& game, const RegretTable& table);
 
 } // namespace bluefish
