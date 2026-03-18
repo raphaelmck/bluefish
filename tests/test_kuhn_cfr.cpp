@@ -14,8 +14,6 @@
 #include "bluefish/cfr.h"
 #include "bluefish/kuhn.h"
 
-#include <cmath>
-
 using namespace bluefish;
 using namespace bluefish::kuhn;
 
