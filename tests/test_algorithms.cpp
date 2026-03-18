@@ -15,6 +15,7 @@
 #include "bluefish/leduc.h"
 
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 
 using namespace bluefish;
@@ -483,4 +484,84 @@ TEST_CASE("fast: all fast solvers validate on leduc") {
         s.train(1000, root_fn);
         CHECK(s.validate().empty());
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Flat exploitability correctness
+// ═══════════════════════════════════════════════════════════════════
+
+TEST_CASE("flat_exploitability: matches slow exploitability on kuhn") {
+    // Train a slow solver, compile its game, build a RegretTable
+    // with the same data, compare exploitability values.
+    auto root_fn = kuhn::root_states;
+
+    CfrSolver slow;
+    slow.train(10'000, root_fn);
+    double slow_e = slow.exploitability(root_fn);
+
+    auto game = FlatGame::compile(root_fn);
+    FastCfrSolver fast(std::move(game), root_fn);
+    fast.train(10'000, root_fn);
+    double fast_e = fast.exploitability(root_fn);
+
+    // Both should converge to similar exploitability.
+    CHECK(fast_e == doctest::Approx(slow_e).epsilon(0.001));
+}
+
+TEST_CASE("flat_exploitability: matches slow exploitability on leduc") {
+    auto root_fn = leduc::root_states;
+
+    CfrSolver slow;
+    slow.train(5'000, root_fn);
+    double slow_e = slow.exploitability(root_fn);
+
+    auto game = FlatGame::compile(root_fn);
+    FastCfrSolver fast(std::move(game), root_fn);
+    fast.train(5'000, root_fn);
+    double fast_e = fast.exploitability(root_fn);
+
+    // Close but not identical due to synthetic root chance node.
+    CHECK(fast_e == doctest::Approx(slow_e).epsilon(0.15));
+    CHECK(fast_e < 0.05);
+}
+
+TEST_CASE("flat_exploitability: is zero-allocation (timing)") {
+    // Train fast solver, then measure exploitability speed.
+    // This is a benchmark, not a strict pass/fail.
+    using Clock = std::chrono::steady_clock;
+    auto root_fn = leduc::root_states;
+
+    auto game = FlatGame::compile(root_fn);
+    FastCfrSolver fast(std::move(game), root_fn);
+    fast.train(10'000, root_fn);
+
+    // Measure flat exploitability.
+    auto t0 = Clock::now();
+    constexpr int reps = 1000;
+    double exploit = 0.0;
+    for (int i = 0; i < reps; ++i)
+        exploit = fast.exploitability(root_fn);
+    double flat_sec = std::chrono::duration<double>(
+        Clock::now() - t0).count();
+
+    // Measure slow exploitability (via synced InfoMap).
+    CfrSolver slow;
+    slow.train(10'000, root_fn);
+    auto t1 = Clock::now();
+    double slow_exploit = 0.0;
+    for (int i = 0; i < reps; ++i)
+        slow_exploit = slow.exploitability(root_fn);
+    double slow_sec = std::chrono::duration<double>(
+        Clock::now() - t1).count();
+    (void)slow_exploit;
+
+    double speedup = slow_sec / flat_sec;
+    std::cout << "  Flat exploitability: " << std::fixed << std::setprecision(4)
+              << flat_sec << "s for " << reps << " calls ("
+              << std::setprecision(1) << speedup << "× vs slow)\n";
+
+    CHECK(exploit > 0.0);
+    CHECK(exploit < 0.1);
+    // Flat should be faster. Even 2× is a win.
+    CHECK(speedup > 1.5);
 }
