@@ -284,6 +284,7 @@ std::string Solver::serialize_json() const {
 
 	std::ostringstream ss;
 	ss << "{\n";
+	ss << "  \"algorithm\": \"" << name() << "\",\n";
 	ss << "  \"iterations\": " << iterations_ << ",\n";
 	ss << "  \"num_info_sets\": " << nodes_.size() << ",\n";
     ss << "  \"info_sets\": {\n";
@@ -302,6 +303,7 @@ std::string Solver::serialize_json() const {
 	}
 
 	ss << "\n }\n}\n";
+	ss << "}\n";
 	return ss.str();
 }
 
