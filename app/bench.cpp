@@ -1,7 +1,7 @@
-// bench.cpp - Focused throughput benchmark
+// bench.cpp — Focused throughput benchmark.
 
-// Measures iterations/sec and nodes/sec for each algorithm on each game
-// Uses warmup iterations (discarded), then multiple timed trials
+// Measures iterations/sec and nodes/sec for each algorithm on each game.
+// Uses warmup iterations (discarded), then multiple timed trials.
 
 // Usage:
 //   ./bench                  # default settings
@@ -10,6 +10,7 @@
 #include "bluefish/cfr.h"
 #include "bluefish/cfr_plus.h"
 #include "bluefish/mccfr.h"
+#include "bluefish/fast_cfr.h"
 #include "bluefish/kuhn.h"
 #include "bluefish/leduc.h"
 
@@ -23,21 +24,22 @@ using Clock = std::chrono::steady_clock;
 struct BenchResult {
     std::string game;
     std::string algo;
-    double median_ips; // iterations per second
-    double median_nps; // nodes per second
-    double median_npi; // nodes per iteration
+    double median_ips;      // iterations per second
+    double median_nps;      // nodes per second
+    double median_npi;      // nodes per iteration
     double exploitability;
 };
 
 // Choose iteration count to keep each trial around 1-3 seconds
 int calibrate_iters(const std::string& game, const std::string& algo) {
+    bool fast = algo.find("fast") != std::string::npos;
     if (game == "kuhn") {
-        if (algo == "mccfr") return 2'000'000;
-        return 200'000;
+        if (algo.find("mccfr") != std::string::npos) return fast ? 2'000'000 : 1'000'000;
+        return fast ? 500'000 : 200'000;
     }
     // Leduc
-    if (algo == "mccfr") return 2'000'000;
-    return 20'000;
+    if (algo.find("mccfr") != std::string::npos) return fast ? 2'000'000 : 1'000'000;
+    return fast ? 100'000 : 10'000;
 }
 
 double median(std::vector<double>& v) {
@@ -64,7 +66,9 @@ int main(int argc, char* argv[]) {
     };
     struct AlgoDef {
         std::string name;
-        std::function<std::unique_ptr<bluefish::Solver>()> make;
+        // Factory takes root_fn so fast solvers can compile the game
+        std::function<std::unique_ptr<bluefish::Solver>(
+            bluefish::Solver::RootFn)> make;
     };
 
     std::vector<GameDef> games = {
@@ -72,9 +76,18 @@ int main(int argc, char* argv[]) {
         {"leduc", bluefish::leduc::root_states},
     };
     std::vector<AlgoDef> algos = {
-        {"cfr",   []{ return std::make_unique<bluefish::CfrSolver>(); }},
-        {"cfr+",  []{ return std::make_unique<bluefish::CfrPlusSolver>(); }},
-        {"mccfr", []{ return std::make_unique<bluefish::MccfrSolver>(42); }},
+        {"cfr",   [](auto) { return std::make_unique<bluefish::CfrSolver>(); }},
+        {"cfr+",  [](auto) { return std::make_unique<bluefish::CfrPlusSolver>(); }},
+        {"mccfr", [](auto) { return std::make_unique<bluefish::MccfrSolver>(42); }},
+        {"fast-cfr", [](auto rf) {
+            return std::make_unique<bluefish::FastCfrSolver>(
+                bluefish::FlatGame::compile(rf), rf); }},
+        {"fast-cfr+", [](auto rf) {
+            return std::make_unique<bluefish::FastCfrPlusSolver>(
+                bluefish::FlatGame::compile(rf), rf); }},
+        {"fast-mccfr", [](auto rf) {
+            return std::make_unique<bluefish::FastMccfrSolver>(
+                bluefish::FlatGame::compile(rf), rf, 42); }},
     };
 
     std::vector<BenchResult> results;
@@ -95,14 +108,14 @@ int main(int argc, char* argv[]) {
             double final_exploit = 0.0;
 
             for (int trial = 0; trial < num_trials; ++trial) {
-                auto solver = algo.make();
+                auto solver = algo.make(game.root_fn);
 
                 // Warmup: 10% of iterations, discarded
                 int warmup = std::max(1, iters / 10);
                 solver->train(warmup, game.root_fn);
 
                 // Reset stats so they only measure the timed portion
-                solver->stats(); // just access, stats are cumulativ
+                solver->stats();  // just access, stats are cumulative
 
                 auto prev_nodes = solver->stats().nodes_touched;
                 auto t0 = Clock::now();
@@ -132,17 +145,17 @@ int main(int argc, char* argv[]) {
 
     // Print results table
     std::cout << std::setw(8) << "game"
-              << std::setw(8) << "algo"
+              << std::setw(14) << "algo"
               << std::setw(14) << "iters/sec"
               << std::setw(14) << "nodes/sec"
               << std::setw(14) << "nodes/iter"
               << std::setw(16) << "exploitability"
               << "\n";
-    std::cout << std::string(76, '-') << "\n";
+    std::cout << std::string(82, '-') << "\n";
 
     for (auto& r : results) {
         std::cout << std::setw(8) << r.game
-                  << std::setw(8) << r.algo
+                  << std::setw(14) << r.algo
                   << std::fixed << std::setprecision(0)
                   << std::setw(14) << r.median_ips
                   << std::setw(14) << r.median_nps
@@ -154,22 +167,26 @@ int main(int argc, char* argv[]) {
     std::cout << "\n";
 
     // Highlight the key ratios
+    std::cout << "\n";
     for (auto& game : games) {
-        double cfr_npi = 0, mccfr_npi = 0;
-        double cfr_ips = 0, mccfr_ips = 0;
+        double cfr_nps = 0, fast_cfr_nps = 0;
+        double cfr_ips = 0, fast_cfr_ips = 0;
+        double mccfr_ips = 0, fast_mccfr_ips = 0;
         for (auto& r : results) {
             if (r.game != game.name) continue;
-            if (r.algo == "cfr") { cfr_npi = r.median_npi; cfr_ips = r.median_ips; }
-            if (r.algo == "mccfr") { mccfr_npi = r.median_npi; mccfr_ips = r.median_ips; }
+            if (r.algo == "cfr")        { cfr_nps = r.median_nps; cfr_ips = r.median_ips; }
+            if (r.algo == "fast-cfr")    { fast_cfr_nps = r.median_nps; fast_cfr_ips = r.median_ips; }
+            if (r.algo == "mccfr")      { mccfr_ips = r.median_ips; }
+            if (r.algo == "fast-mccfr") { fast_mccfr_ips = r.median_ips; }
         }
-        if (cfr_npi > 0 && mccfr_npi > 0) {
-            std::cout << game.name << ": CFR touches "
-                      << std::fixed << std::setprecision(0)
-                      << cfr_npi / mccfr_npi
-                      << "× more nodes/iter than MCCFR; MCCFR runs "
-                      << mccfr_ips / cfr_ips
-                      << "× more iters/sec\n";
-        }
+        std::cout << std::fixed << std::setprecision(1);
+        if (cfr_nps > 0 && fast_cfr_nps > 0)
+            std::cout << game.name << ": fast-cfr "
+                      << fast_cfr_nps / cfr_nps << "x nodes/sec vs cfr ("
+                      << fast_cfr_ips / cfr_ips << "x iters/sec)\n";
+        if (mccfr_ips > 0 && fast_mccfr_ips > 0)
+            std::cout << game.name << ": fast-mccfr "
+                      << fast_mccfr_ips / mccfr_ips << "x iters/sec vs mccfr\n";
     }
 
     return 0;
