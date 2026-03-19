@@ -17,6 +17,7 @@ add_library(bluefish_core
     src/mccfr.cpp
     src/flat_game.cpp
     src/fast_cfr.cpp
+    src/abstraction.cpp
 )
 target_include_directories(bluefish_core PUBLIC include)
 
@@ -52,3 +53,7 @@ add_test(NAME leduc_tests COMMAND test_leduc)
 add_executable(test_algorithms tests/test_algorithms.cpp)
 target_link_libraries(test_algorithms PRIVATE bluefish_core doctest::doctest)
 add_test(NAME algorithm_tests COMMAND test_algorithms)
+
+add_executable(test_abstraction tests/test_abstraction.cpp)
+target_link_libraries(test_abstraction PRIVATE bluefish_core doctest::doctest)
+add_test(NAME abstraction_tests COMMAND test_abstraction)
