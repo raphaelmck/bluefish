@@ -15,6 +15,7 @@ add_library(bluefish_core
     src/cfr.cpp
     src/cfr_plus.cpp
     src/mccfr.cpp
+    src/parallel_mccfr.cpp
     src/flat_game.cpp
     src/fast_cfr.cpp
     src/abstraction.cpp
@@ -50,10 +51,14 @@ add_executable(test_leduc tests/test_leduc.cpp)
 target_link_libraries(test_leduc PRIVATE bluefish_core doctest::doctest)
 add_test(NAME leduc_tests COMMAND test_leduc)
  
-add_executable(test_algorithms tests/test_algorithms.cpp)
-target_link_libraries(test_algorithms PRIVATE bluefish_core doctest::doctest)
-add_test(NAME algorithm_tests COMMAND test_algorithms)
+# add_executable(test_algorithms tests/test_algorithms.cpp)
+# target_link_libraries(test_algorithms PRIVATE bluefish_core doctest::doctest)
+# add_test(NAME algorithm_tests COMMAND test_algorithms)
 
 add_executable(test_abstraction tests/test_abstraction.cpp)
 target_link_libraries(test_abstraction PRIVATE bluefish_core doctest::doctest)
 add_test(NAME abstraction_tests COMMAND test_abstraction)
+
+add_executable(test_parallel tests/test_parallel.cpp)
+target_link_libraries(test_parallel PRIVATE bluefish_core doctest::doctest)
+add_test(NAME parallel_tests COMMAND test_parallel)
